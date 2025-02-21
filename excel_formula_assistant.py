@@ -4,7 +4,8 @@ import openai
 import random
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QTextEdit, QPushButton, QLabel, 
-                           QComboBox, QMessageBox, QTextBrowser, QProgressBar)
+                           QComboBox, QMessageBox, QTextBrowser, QProgressBar,
+                           QInputDialog, QLineEdit)
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
 from dotenv import load_dotenv
@@ -114,16 +115,32 @@ class ExcelFormulaAssistant(QMainWindow):
         """)
        
         
-        # Check for API key
-        load_dotenv()
-        self.api_key = os.getenv('OPENAI_API_KEY')
-        
-        if not self.api_key:
-            QMessageBox.warning(self, "API Key Missing", 
-                              "Please set your OpenAI API key in the environment variable 'OPENAI_API_KEY'")
+        # Get application path based on whether we're running as executable or script
+        if getattr(sys, 'frozen', False):
+            application_path = os.path.dirname(os.path.abspath(sys.executable))
         else:
-            openai.api_key = self.api_key
-            self.client = openai.OpenAI()
+            application_path = os.path.dirname(os.path.abspath(__file__))
+
+        env_path = os.path.join(application_path, ".env")
+        
+        # Try to get API key from .env if it exists
+        self.api_key = None
+        if os.path.exists(env_path):
+            load_dotenv(env_path)
+            env_key = os.getenv('OPENAI_API_KEY')
+            if env_key and env_key.strip():  # Only use key from .env if it's not empty
+                self.api_key = env_key.strip()
+        
+        # If no valid API key found, prompt user
+        if not self.api_key:
+            self.get_api_key_from_user()
+        else:
+            # Test the API key by initializing OpenAI
+            try:
+                self.initialize_openai()
+            except Exception:
+                # If API key is invalid, prompt user for a new one
+                self.get_api_key_from_user()
 
         self.setup_ui()
 
@@ -190,14 +207,17 @@ class ExcelFormulaAssistant(QMainWindow):
         input_clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         input_clear_btn.setStyleSheet("""
             QPushButton {
-                background: transparent;
-                border: none;
+                background: #eee;
+                border: 1px solid #ddd;
+                border-radius: 12px;
                 color: #666;
-                font-size: 20px;
+                font-size: 16px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                color: #ff4444;
+                background: #ff4444;
+                color: white;
+                border-color: #ff4444;
             }
         """)
         
@@ -275,14 +295,17 @@ class ExcelFormulaAssistant(QMainWindow):
         output_clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         output_clear_btn.setStyleSheet("""
             QPushButton {
-                background: transparent;
-                border: none;
+                background: #eee;
+                border: 1px solid #ddd;
+                border-radius: 12px;
                 color: #666;
-                font-size: 20px;
+                font-size: 16px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                color: #ff4444;
+                background: #ff4444;
+                color: white;
+                border-color: #ff4444;
             }
         """)
         
@@ -323,6 +346,42 @@ class ExcelFormulaAssistant(QMainWindow):
             }}
         """
 
+    def get_api_key_from_user(self):
+        while True:
+            api_key, ok = QInputDialog.getText(
+                self,
+                "OpenAI API Key Required",
+                "Please enter your OpenAI API Key:\n\nYou can get it from: https://platform.openai.com/api-keys",
+                QLineEdit.EchoMode.Password
+            )
+            
+            if not ok:
+                # User clicked Cancel
+                if QMessageBox.question(
+                    self,
+                    "Exit Confirmation",
+                    "The application requires an API key to function. Do you want to exit?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                ) == QMessageBox.StandardButton.Yes:
+                    sys.exit(0)
+                continue
+            
+            if not api_key.strip():
+                QMessageBox.warning(self, "Invalid Input", "API key cannot be empty.")
+                continue
+            
+            # Save the API key to .env file
+            env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+            with open(env_path, "w") as f:
+                f.write(f"OPENAI_API_KEY={api_key}")
+            
+            self.api_key = api_key
+            self.initialize_openai()
+            break
+    
+    def initialize_openai(self):
+        self.client = openai.OpenAI(api_key=self.api_key)
+    
     def copy_text(self, text_widget):
         text = text_widget.toPlainText()
         QApplication.clipboard().setText(text)

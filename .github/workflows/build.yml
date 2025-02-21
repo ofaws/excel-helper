@@ -18,12 +18,16 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Create .env file with OpenAI API key
+        run: |
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env   
+
       - name: Install dependencies
         run: pip install -r requirements.txt pyinstaller
 
       - name: Build executable
         run: |
-          pyinstaller --onefile --icon=icon.ico excel_formula_assistant.py
+          pyinstaller --onefile --icon=icon.ico --add-data ".env:.env" excel_formula_assistant.py
         shell: bash
 
       - name: Upload artifact

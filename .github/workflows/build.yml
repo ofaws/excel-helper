@@ -21,10 +21,6 @@ jobs:
       - name: Create .env file with OpenAI API key
         run: |
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env
-          cat .env | tr -d '\r' > .env.clean
-          mv .env.clean .env
-          ls -la .env
-          cat .env
 
       - name: Install dependencies
         run: pip install -r requirements.txt pyinstaller python-dotenv

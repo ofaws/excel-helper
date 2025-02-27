@@ -4,7 +4,7 @@ a = Analysis(
     ['excel_formula_assistant.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('.env', '.')],
     hiddenimports=[
         'PyQt6',
         'PyQt6.QtCore',

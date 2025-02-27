@@ -115,37 +115,35 @@ class ExcelFormulaAssistant(QMainWindow):
         """)
        
         
-        # Get application path based on whether we're running as executable or script
+        # Determine application path for resource files
         if getattr(sys, 'frozen', False):
-            application_path = os.path.dirname(os.path.abspath(sys.executable))
+            # If the application is run as a bundle (PyInstaller executable)
+            env_path = os.path.join(sys._MEIPASS, ".env")
         else:
             application_path = os.path.dirname(os.path.abspath(__file__))
+            env_path = os.path.join(application_path, ".env")
+            
+        print(f"Looking for .env at: {env_path}")
 
-        env_path = os.path.join(application_path, ".env")
-        
-        # Try to get API key from .env if it exists
         self.api_key = None
         if os.path.exists(env_path):
+            print(f"Loading .env from: {env_path}")
             load_dotenv(env_path)
             env_key = os.getenv('OPENAI_API_KEY')
             if env_key and env_key.strip():  # Only use key from .env if it's not empty
                 self.api_key = env_key.strip()
         
-        # If no valid API key found, prompt user
         if not self.api_key:
             self.get_api_key_from_user()
         else:
-            # Test the API key by initializing OpenAI
             try:
                 self.initialize_openai()
             except Exception:
-                # If API key is invalid, prompt user for a new one
                 self.get_api_key_from_user()
 
         self.setup_ui()
 
     def setup_ui(self):
-        # Create central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
@@ -195,11 +193,24 @@ class ExcelFormulaAssistant(QMainWindow):
         input_buttons = QHBoxLayout()
         input_buttons.setSpacing(5)
         
-        input_copy_btn = QPushButton()
-        input_copy_btn.setIcon(QIcon.fromTheme("edit-copy"))
-        input_copy_btn.setFixedSize(24, 24)
+        input_copy_btn = QPushButton("Copy")
+        input_copy_btn.setFixedSize(60, 24)
         input_copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        input_copy_btn.setStyleSheet("background: transparent; border: none;")
+        input_copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f8f8f8;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+                color: #444;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background-color: #e8e8e8;
+                border-color: #ccc;
+            }
+        """)
         input_copy_btn.clicked.connect(lambda: self.copy_text(self.input_text))
         
         input_clear_btn = QPushButton("×")
@@ -213,6 +224,7 @@ class ExcelFormulaAssistant(QMainWindow):
                 color: #666;
                 font-size: 16px;
                 font-weight: bold;
+                padding: 0;
             }
             QPushButton:hover {
                 background: #ff4444;
@@ -283,11 +295,24 @@ class ExcelFormulaAssistant(QMainWindow):
         output_buttons = QHBoxLayout()
         output_buttons.setSpacing(5)
         
-        output_copy_btn = QPushButton()
-        output_copy_btn.setIcon(QIcon.fromTheme("edit-copy"))
-        output_copy_btn.setFixedSize(24, 24)
+        output_copy_btn = QPushButton("Copy")
+        output_copy_btn.setFixedSize(60, 24)
         output_copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        output_copy_btn.setStyleSheet("background: transparent; border: none;")
+        output_copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f8f8f8;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+                color: #444;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background-color: #e8e8e8;
+                border-color: #ccc;
+            }
+        """)
         output_copy_btn.clicked.connect(lambda: self.copy_text(self.output_text))
         
         output_clear_btn = QPushButton("×")
@@ -301,6 +326,7 @@ class ExcelFormulaAssistant(QMainWindow):
                 color: #666;
                 font-size: 16px;
                 font-weight: bold;
+                padding: 0;
             }
             QPushButton:hover {
                 background: #ff4444;
@@ -384,7 +410,13 @@ class ExcelFormulaAssistant(QMainWindow):
     
     def copy_text(self, text_widget):
         text = text_widget.toPlainText()
+        if not text.strip():
+            return  # Don't copy if text is empty
+            
         QApplication.clipboard().setText(text)
+        
+        # Show a temporary status message
+        self.statusBar().showMessage("Text copied to clipboard!", 2000)
 
     def generate_random_task(self):
         tasks = [
@@ -454,9 +486,21 @@ class ExcelFormulaAssistant(QMainWindow):
         self.openai_thread.start()
 
     def handle_response(self, content):
-        # Convert the response to markdown and set as HTML
-        markdown_content = markdown(content)
-        self.output_text.setHtml(markdown_content)
+        # Convert the response to markdown with custom styling
+        html_content = f"""
+        <style>
+            body {{ font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; }}
+            code {{ background: #f8f9fa; padding: 2px 4px; border-radius: 4px; font-family: 'Consolas', monospace; }}
+            pre {{ background: #f8f9fa; padding: 12px; border-radius: 4px; overflow-x: auto; }}
+            pre code {{ background: none; padding: 0; }}
+            table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+            th {{ background: #f8f9fa; }}
+            p {{ margin: 8px 0; }}
+        </style>
+        {markdown(content)}
+        """
+        self.output_text.setHtml(html_content)
         
         # Hide loading indicator and enable process button
         self.loading_indicator.hide()

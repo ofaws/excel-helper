@@ -2,6 +2,8 @@
 
 A desktop application that helps you generate and understand Excel formulas using OpenAI's GPT model.
 
+![Excel Formula Assistant](./excel_app.png)
+
 ## Features
 
 - Generate Excel formulas by describing what you want to achieve
